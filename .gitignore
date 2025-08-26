@@ -1,0 +1,42 @@
+# Compiled Python bytecode files
+*.pyc
+__pycache__/
+
+# Virtual environments
+.env
+.venv
+venv/
+env/
+
+# scratch files
+scribble/
+
+# IDE/editor-specific files
+.vscode/
+.idea/
+*.sublime-*
+
+# Distribution and packaging artifacts
+build/
+dist/
+*.egg-info/
+
+# Installer logs
+pip-log.txt
+
+# Unit test/coverage reports
+.coverage
+.tox/
+htmlcov/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# logs/reports and pytest cache
+logs/
+reports/
+*.log
+*.html
+.pytest_cache/
+# keep secrets local
+configs/config.yaml
