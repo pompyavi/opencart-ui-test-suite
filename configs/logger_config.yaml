@@ -1,0 +1,38 @@
+---
+version: 1  # this is needed, and is always 1 (at least at this time)
+disable_existing_loggers: true  # turn off any existing loggers - this is the default, so don't actually need this
+
+# Define one or more formatters
+# You can name them whatever you want, here I chose to name it `simple`
+formatters:
+  simple:
+    style: "{"
+    format: "{asctime} | {name} | {module} | {levelname} | {message}"
+
+# Define one or more handlers
+# You can name them whatever you want, here I chose to name it `console`
+handlers:
+
+  console:
+    class: logging.StreamHandler
+    level: INFO
+    formatter: simple
+    stream: ext://sys.stdout
+    
+  file:
+    class: logging.FileHandler
+    level: DEBUG
+    formatter: simple
+    filename: logs/example.log
+    mode: w
+
+# Configure root logger, and framework logger
+root:
+  level: DEBUG
+  handlers: [console, file]
+
+loggers:
+  selenium:
+    level: WARNING
+    propagate: true
+

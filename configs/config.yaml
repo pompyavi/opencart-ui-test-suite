@@ -1,0 +1,25 @@
+qa:
+  login_url: "https://naveenautomationlabs.com/opencart/index.php?route=account/login"
+  browser: "firefox"
+  test_data:
+    user_registration: "test_data/user_registration_data.csv"
+  credentials:
+    email: "pompyavi@gmail.com"
+    password: "Killbill11@"
+  headless: false
+  incognito: true
+  flash: true
+
+uat:
+  base_url: "https://naveenautomationlabs.com/opencart/index.php?route=account/login"
+  browser: "firefox"
+  credentials:
+    username: "staging@example.com"
+    password: "stagingpass"
+
+prod:
+  base_url: "https://opencart.com"
+  browser: "chrome"
+  credentials:
+    username: "prod@example.com"
+    password: "prodpass"
