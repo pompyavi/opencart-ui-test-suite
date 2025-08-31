@@ -35,6 +35,7 @@ htmlcov/
 # logs/reports and pytest cache
 logs/
 reports/
+allure-results/
 *.log
 *.html
 .pytest_cache/
