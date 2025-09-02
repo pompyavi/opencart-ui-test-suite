@@ -12,7 +12,6 @@ class ConfigReader:
         The default environment is 'qa' if TEST_ENV is not set.
         """
         env = os.getenv("TEST_ENV", "qa")  # default to qa
-
         # Path(__file__).resolve() - gets the absolute path of the current file
         root_dir = Path(__file__).resolve().parent.parent
 

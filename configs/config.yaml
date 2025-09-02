@@ -4,18 +4,23 @@ qa:
   test_data:
     user_registration: "test_data/user_registration_data.csv"
   credentials:
-    email: "pompyavi@gmail.com"
-    password: "Killbill11@"
+    email: "testuser_12@gmail.com"
+    password: "Welcome11@"
   headless: false
   incognito: true
   flash: true
 
 uat:
-  base_url: "https://naveenautomationlabs.com/opencart/index.php?route=account/login"
-  browser: "firefox"
+  login_url: "https://naveenautomationlabs.com/opencart/index.php?route=account/login"
+  browser: "edge"
+  test_data:
+    user_registration: "test_data/user_registration_data.csv"
   credentials:
-    username: "staging@example.com"
-    password: "stagingpass"
+    email: "testuser_12@gmail.com"
+    password: "Welcome11@"
+  headless: false
+  incognito: true
+  flash: true
 
 prod:
   base_url: "https://naveenautomationlabs.com/opencart/index.php?route=account/login"
