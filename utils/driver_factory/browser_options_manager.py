@@ -11,19 +11,23 @@ class OptionsManager:
     This function sets various options for the browser to enhance performance and user experience.
     :return: An instance of Options with the specified configurations.
     """
+
+    def __init__(self, remote=False):
+        self.remote = remote
+
     @cached_property
     def get_chrome_options(self):
-        return chrome_options()
+        return chrome_options(self.remote)
 
     @cached_property
     def get_firefox_options(self):
-        return firefox_options()
+        return firefox_options(self.remote)
 
     @cached_property
     def get_edge_options(self):
-        return edge_options()
+        return edge_options(self.remote)
 
-def chrome_options():
+def chrome_options(remote):
     options = ChromeOptions()
     if ConfigReader.get_config('headless'):
         options.add_argument("--headless")
@@ -31,9 +35,13 @@ def chrome_options():
     if ConfigReader.get_config('incognito'):
         options.add_argument("--incognito")
         print('Running in incognito mode')
+
+    if remote:
+        options.set_capability('browserName', 'chrome')
+
     return options
 
-def firefox_options():
+def firefox_options(remote):
     options = FirefoxOptions()
     if ConfigReader.get_config('headless'):
         options.add_argument("--headless")
@@ -41,9 +49,12 @@ def firefox_options():
     if ConfigReader.get_config('incognito'):
         options.add_argument("-private-window")
         print('Running in incognito mode')
+
+    if remote:
+        options.set_capability('browserName', 'firefox')
     return options
 
-def edge_options():
+def edge_options(remote):
     options = EdgeOptions()
     if ConfigReader.get_config('headless'):
         options.add_argument("--headless")
@@ -51,4 +62,7 @@ def edge_options():
     if ConfigReader.get_config('incognito'):
         options.add_argument("-inprivate")
         print('Running in incognito mode')
+
+    if remote:
+        options.set_capability('browserName', 'edge')
     return options

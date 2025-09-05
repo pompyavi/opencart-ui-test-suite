@@ -1,8 +1,15 @@
+import time
+
 from selenium import webdriver
 from utils.config_reader import ConfigReader
 from utils.driver_factory.browser_options_manager import OptionsManager
 from utils.framework_exception import FrameworkException
 
+def _init_remote_webdriver(remote_url, options):
+    return webdriver.Remote(
+        command_executor=remote_url,
+        options=options
+    )
 
 def driver_manager(browser):
     """
@@ -17,18 +24,30 @@ def driver_manager(browser):
     if not browser:
         browser = ConfigReader.get_config('browser')
 
+    remote_config = ConfigReader.get_config('remote')
+    remote_enabled = remote_config.get('enabled', False)
+
     print(f'Initializing WebDriver for browser: {browser}')
 
     match browser.strip().lower():
         case "chrome":
-            options = OptionsManager().get_chrome_options
-            driver = webdriver.Chrome(options=options)
+            options = OptionsManager(remote=remote_enabled).get_chrome_options
+            if remote_enabled:
+                driver = _init_remote_webdriver(remote_config.get('remote_url'), options)
+            else:
+                driver = webdriver.Chrome(options=options)
         case "firefox":
-            options = OptionsManager().get_firefox_options
-            driver = webdriver.Firefox(options=options)
+            options = OptionsManager(remote=remote_enabled).get_firefox_options
+            if remote_enabled:
+                driver = _init_remote_webdriver(remote_config.get('remote_url'), options)
+            else:
+                driver = webdriver.Firefox(options=options)
         case "edge":
-            options = OptionsManager().get_edge_options
-            driver = webdriver.Edge(options=options)
+            options = OptionsManager(remote=remote_enabled).get_edge_options
+            if remote_enabled:
+                driver = _init_remote_webdriver(remote_config.get('remote_url'), options)
+            else:
+                driver = webdriver.Edge(options=options)
         case _:
             raise FrameworkException(f'Unsupported browser type: {browser}. Supported browsers are: Chrome, Firefox, Edge')
 

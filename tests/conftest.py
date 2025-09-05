@@ -160,59 +160,59 @@ def pytest_runtest_makereport(item, call):
     outcome = yield
     rep = outcome.get_result()
 
-    if rep.when in ("setup", "call") and rep.outcome == "failed" and not getattr(rep, "wasxfail", ""):
-        # only try extras if pytest-html is active
-        if item.config.pluginmanager.hasplugin("html"):
-            # normalize extras list across pytest-html versions
-            extras_list = getattr(rep, "extras", None) or getattr(rep, "extra", [])
+    if rep.when not in ("setup", "call") or rep.outcome != "failed" or getattr(rep, "wasxfail", ""):
+        return
 
-            # find driver: function fixture 'driver' OR class attr 'self.driver'
-            drv = item.funcargs.get("driver") if hasattr(item, "funcargs") else None
-            if drv is None and getattr(item, "instance", None) is not None:
-                drv = getattr(item.instance, "driver", None)
+    # Resolve driver once (function fixture or class attribute)
+    drv = None
+    if hasattr(item, "funcargs"):
+        drv = item.funcargs.get("driver")
+    if drv is None and getattr(item, "instance", None) is not None:
+        drv = getattr(item.instance, "driver", None)
+    if not drv:
+        return
 
-            if drv:
-                # prefer base64 string; fall back to PNG bytes -> base64
-                try:
-                    b64 = drv.get_screenshot_as_base64()
-                except Exception:
-                    try:
-                        b64 = _b64(drv.get_screenshot_as_png())
-                    except Exception:
-                        b64 = None
+    # One timestamp/worker id for both reporters
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    worker = os.getenv("PYTEST_XDIST_WORKER", "sequential")
 
-                if b64:
-                    ts = int(datetime.now().timestamp())
-                    extras_list.append(
-                        html_extras.image(
-                            b64, mime_type="image/png", extension="png",
-                            name=f"{item.name}-{ts}"
-                        )
-                    )
-                    # write back (supports old/new attribute names)
-                    if hasattr(rep, "extras"):
-                        rep.extras = extras_list
-                    else:
-                        rep.extra = extras_list
+    # Take one screenshot; reuse for html + Allure
+    png = None
+    try:
+        png = drv.get_screenshot_as_png()
+    except Exception:
+        pass
 
-        if _ALLURE:
-            try:
-                png = drv.get_screenshot_as_png()
-                name = f"{item.name}_{os.getenv('PYTEST_XDIST_WORKER', 'sequential')}_{ts}"
-                allure.attach(png, name=name, attachment_type=AttachmentType.PNG)
-            except Exception as e:
-                try:
-                    allure.attach(str(e), name="allure-screenshot-error", attachment_type=AttachmentType.TEXT)
-                except Exception:
-                    pass
-
-        # stash failure text for end-of-test log
+    # pytest-html (embed as base64 so it's self-contained)
+    if item.config.pluginmanager.hasplugin("html") and png:
         try:
-            item._fail_text = str(rep.longrepr)
+            b64 = base64.b64encode(png).decode("ascii")
+            extras_list = getattr(rep, "extras", None) or getattr(rep, "extra", [])
+            extras_list.append(
+                html_extras.image(b64, mime_type="image/png", extension="png", name=f"{item.name}-{ts}")
+            )
+            if hasattr(rep, "extras"):
+                rep.extras = extras_list
+            else:
+                rep.extra = extras_list
         except Exception:
-            item._fail_text = None
+            pass  # keep tests going even if report attach fails
 
+    # Allure
+    if _ALLURE and png:
+        try:
+            allure.attach(png, name=f"{item.name}_{worker}_{ts}", attachment_type=AttachmentType.PNG)
+        except Exception as e:
+            try:
+                allure.attach(str(e), name="allure-screenshot-error", attachment_type=AttachmentType.TEXT)
+            except Exception:
+                pass
 
+    # Stash failure text for your logger
+    try:
+        item._fail_text = str(rep.longrepr)
+    except Exception:
+        item._fail_text = None
 
 @pytest.hookimpl(trylast=True)
 def pytest_unconfigure(config):
