@@ -1,3 +1,5 @@
+import time
+
 from selenium.webdriver.common.by import By
 from pages.account_page import AccountPage
 from pages.user_registration_page import UserRegistrationPage
@@ -17,6 +19,7 @@ class LoginPage:
         self.__driver = driver
         self.__util = ElementUtil(self.__driver)
         self.__util.launch_url(ConfigReader.get_config('login_url'))
+        #time.sleep(150)
         self.__logger = logging.getLogger(__name__)
 
     def get_page_title(self):

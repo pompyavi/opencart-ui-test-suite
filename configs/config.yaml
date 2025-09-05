@@ -1,14 +1,17 @@
 qa:
   login_url: "https://naveenautomationlabs.com/opencart/index.php?route=account/login"
-  browser: "firefox"
+  browser: "chrome"
   test_data:
     user_registration: "test_data/user_registration_data.csv"
   credentials:
     email: "testuser_12@gmail.com"
     password: "Welcome11@"
   headless: false
-  incognito: true
+  incognito: false
   flash: true
+  remote:
+    enabled: true
+    remote_url: "http://localhost:4444/wd/hub"
 
 uat:
   login_url: "https://naveenautomationlabs.com/opencart/index.php?route=account/login"
