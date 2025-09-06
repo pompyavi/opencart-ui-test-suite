@@ -9,7 +9,8 @@ def get_random_email():
     """Generates a random email address for testing purposes."""
     return f"tester{int(time.time())}@gmail.com"
 
-@pytest.mark.skip(reason="Skipping user registration page tests temporarily")
+@pytest.mark.user_registration
+#@pytest.mark.skip(reason="Skipping user registration page tests temporarily")
 @pytest.mark.usefixtures('setup_registration_page')
 class TestUserRegistrationPage:
 

@@ -3,7 +3,8 @@ from assertpy import assert_that, soft_assertions
 from constants.app_constants import FOOTER_SECTIONS, INFORMATION_SECTION_LINKS
 from constants.test_data import SEARCH_TESTDATA
 
-@pytest.mark.skip(reason="Skipping search result page tests temporarily")
+@pytest.mark.search
+#@pytest.mark.skip(reason="Skipping search result page tests temporarily")
 @pytest.mark.usefixtures('setup_account_page')
 class TestSearchResultsPage:
 
