@@ -11,9 +11,12 @@ def _init_remote_webdriver(remote_url, options):
         options=options
     )
 
-def driver_manager(browser):
+def driver_manager(browser, remote, version, test_name):
     """
     A simple driver manager that returns a driver instance based on the browser type.
+    :param remote: Enable remote execution via Selenium Grid or Selenoid
+    :param test_name: Name of the test for remote execution identification.
+    :param version: Browser version to be used.
     :param browser: The type of browser to use (e.g., "chrome", "firefox", "edge").
     :return: An instance of the WebDriver for the specified browser.
     :raises FrameworkException: If the browser type is not supported.
@@ -24,28 +27,28 @@ def driver_manager(browser):
     if not browser:
         browser = ConfigReader.get_config('browser')
 
-    remote_config = ConfigReader.get_config('remote')
-    remote_enabled = remote_config.get('enabled', False)
+    if remote:
+        remote_url = ConfigReader.get_config('remote').get('remote_url')
 
     print(f'Initializing WebDriver for browser: {browser}')
 
     match browser.strip().lower():
         case "chrome":
-            options = OptionsManager(remote=remote_enabled).get_chrome_options
-            if remote_enabled:
-                driver = _init_remote_webdriver(remote_config.get('remote_url'), options)
+            options = OptionsManager(remote=remote, version=version, test_name=test_name).get_chrome_options
+            if remote:
+                driver = _init_remote_webdriver(remote_url, options)
             else:
                 driver = webdriver.Chrome(options=options)
         case "firefox":
-            options = OptionsManager(remote=remote_enabled).get_firefox_options
-            if remote_enabled:
-                driver = _init_remote_webdriver(remote_config.get('remote_url'), options)
+            options = OptionsManager(remote=remote, version=version, test_name=test_name).get_firefox_options
+            if remote:
+                driver = _init_remote_webdriver(remote_url, options)
             else:
                 driver = webdriver.Firefox(options=options)
         case "edge":
-            options = OptionsManager(remote=remote_enabled).get_edge_options
-            if remote_enabled:
-                driver = _init_remote_webdriver(remote_config.get('remote_url'), options)
+            options = OptionsManager(remote=remote, version=version, test_name=test_name).get_edge_options
+            if remote:
+                driver = _init_remote_webdriver(remote_url, options)
             else:
                 driver = webdriver.Edge(options=options)
         case _:

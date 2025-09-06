@@ -30,12 +30,20 @@ _logger = None
 
 def pytest_addoption(parser):
     parser.addoption("--browser", action="store")
+    parser.addoption("--browser_version", action="store", default="latest", type=str)
+    parser.addoption("--remote", action="store_true",  # means it’s a boolean toggle
+        default=False,
+        help="Enable remote execution via Selenium Grid or Selenoid"
+    )
 
 
 @pytest.fixture(scope='class')
 def setup_teardown(request):
     browser = request.config.getoption("browser")
-    driver = driver_manager(browser)
+    version = request.config.getoption("browser_version")
+    test_name = request.node.name
+    remote = request.config.getoption("remote")
+    driver = driver_manager(browser, remote, version, test_name)
 
     # Attaches the driver to the test class (request.cls.driver), so in tests you can just do
     # self.driver instead of passing it as a method arg.
@@ -147,7 +155,7 @@ def pytest_configure(config):
     # 7) Tell pytest-html to write to the timestamped path
     config.option.htmlpath = str(stamped)
 
-    # 8) (Optional) remember where to copy a "latest.html"
+    # 9) (Optional) remember where to copy a "latest.html"
     config._latest_html_target = base.with_name("latest.html")
 
 
@@ -173,7 +181,7 @@ def pytest_runtest_makereport(item, call):
         return
 
     # One timestamp/worker id for both reporters
-    ts = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    ts = int(datetime.now().timestamp())
     worker = os.getenv("PYTEST_XDIST_WORKER", "sequential")
 
     # Take one screenshot; reuse for html + Allure
@@ -228,3 +236,7 @@ def pytest_unconfigure(config):
             _logger and _logger.info(f"Copied final HTML to: {latest}")
         except Exception as e:
             _logger and _logger.warning(f"Failed to copy HTML to latest: {e}")
+
+
+def pytest_html_report_title(report):
+    report.title = "Test Execution Report"
