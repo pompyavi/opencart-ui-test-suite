@@ -6,6 +6,7 @@ from constants import app_constants
 from constants.app_constants import FOOTER_SECTIONS, INFORMATION_SECTION_LINKS
 from constants.test_data import PRODUCT_TEST_DATA
 
+@pytest.mark.product
 @pytest.mark.usefixtures('setup_account_page')
 class TestProductPage:
 

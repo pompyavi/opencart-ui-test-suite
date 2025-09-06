@@ -3,7 +3,7 @@ from constants import app_constants
 from assertpy import assert_that
 from utils.config_reader import ConfigReader
 
-
+@pytest.mark.login
 @pytest.mark.usefixtures('setup_login_page')
 class TestLoginPage:
 

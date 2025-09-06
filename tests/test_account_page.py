@@ -4,6 +4,7 @@ from constants.app_constants import ACCOUNT_PAGE_URL, ACCOUNT_PAGE_TITLE, ACCOUN
     RIGHT_COLUMN_LINKS_AFTER_LOGIN, FOOTER_SECTIONS, INFORMATION_SECTION_LINKS
 
 
+@pytest.mark.account
 @pytest.mark.usefixtures('setup_account_page')
 class TestAccountPage:
 
