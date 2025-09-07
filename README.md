@@ -16,7 +16,7 @@ This is a demo UI test automation framework for OpenCart, built to showcase mode
 - **Reporting:** HTML reports with screenshots on failure (via `pytest-html` and optional Allure integration).
 - **Data-Driven Testing:** Parameterized tests using CSV and constants.
 - **Retry Mechanisms:** Handled via Pytest command-line args (e.g., `--last-failed`, `--reruns`).
-- **CI/CD:** Jenkins freestyle job integrated; pipeline is a work-in-progress.
+- **CI/CD:** Jenkins pipeline integrated via `Jenkinsfile` (multi-env, browser/version params, optional remote via Selenoid, parallel execution, and report publishing).
 - **Utilities:** Custom helpers for elements, JavaScript, waits, and exceptions.
 
 ## Tech Stack
@@ -50,7 +50,7 @@ This is a demo UI test automation framework for OpenCart, built to showcase mode
 3. **Set Up Selenoid:**
    - Navigate to `selenoid/` and start the containers:
      ```
-     docker-compose up -d
+     docker-compose up -d  # or: docker compose up -d
      ```
    - Access Selenoid UI at `http://localhost:8080`.
    - Update `configs/config.yaml` to enable remote mode if needed:
@@ -78,9 +78,14 @@ This is a demo UI test automation framework for OpenCart, built to showcase mode
   pytest tests/ -n auto --dist loadscope
   ```
 
+- **Remote (Selenoid):**
+  ```
+  pytest tests --remote --browser chrome --browser_version latest -n auto --dist loadscope
+  ```
+
 - **With Retries:**
   ```
-  pytest tests/ --reruns 3 --reruns-delay 2  # Requires pytest-rerunfailures plugin
+  pytest tests --reruns 3 --reruns-delay 2  # Requires pytest-rerunfailures plugin
   ```
 
 - **Specific Tests:**
@@ -90,7 +95,7 @@ This is a demo UI test automation framework for OpenCart, built to showcase mode
 
 - **Generate HTML Report:**
   ```
-  pytest tests/ --html=reports/report.html --self-contained-html
+  pytest tests --html=reports/report.html --self-contained-html
   ```
   Reports are saved in `reports/` with timestamps; check `latest.html` for the most recent.
 
@@ -98,31 +103,84 @@ This is a demo UI test automation framework for OpenCart, built to showcase mode
   Logs are generated in `logs/` with timestamps (e.g., `test_YYYYMMDD_HHMMSS.log`). In parallel mode, each worker gets its own file.
 
 ## Project Structure
-```
+
+```text
 opencart_ui_test_suite/
 ├── configs/              # Configuration files (YAML)
+│   ├── config.yaml
+│   └── logger_config.yaml
 ├── constants/            # App constants and test data
-├── logs/                 # Generated log files
+│   ├── app_constants.py
+│   └── test_data.py
+├── logs/                 # Generated log files (timestamped)
 ├── pages/                # Page Object Model classes
-├── reports/              # Test reports and assets (screenshots)
+│   ├── account_page.py
+│   ├── common_components.py
+│   ├── login_page.py
+│   ├── product_page.py
+│   ├── search_result_page.py
+│   └── user_registration_page.py
+├── reports/              # Test reports and assets (generated)
+│   ├── assets/
+│   ├── latest.html
+│   └── report_*.html
 ├── selenoid/             # Selenoid Docker setup
-├── test_data/            # CSV data for tests
-├── tests/                # Pytest tests and conftest.py
-├── utils/                # Utility modules (driver factory, elements, etc.)
-├── pytest.ini            # Pytest configuration
-└── README.md             # This file
+│   ├── docker-compose.yml
+│   └── browsers.json
+├── test_data/
+│   └── user_registration_data.csv
+├── tests/                # Pytest tests and configuration
+│   ├── __init__.py
+│   ├── conftest.py
+│   ├── test_account_page.py
+│   ├── test_login_page.py
+│   ├── test_product_page.py
+│   ├── test_search_result_page.py
+│   └── test_user_registration_page.py
+├── utils/                # Utility modules
+│   ├── config_reader.py
+│   ├── csv_reader.py
+│   ├── element_util.py
+│   ├── framework_exception.py
+│   ├── javascript_util.py
+│   └── driver_factory/
+│       ├── browser_options_manager.py
+│       └── driver_manager.py
+├── Jenkinsfile
+├── pytest.ini
+├── requirements.txt
+└── README.md
 ```
 
 ## Jenkins Integration
-- A freestyle job is set up for basic CI/CD (e.g., triggering tests on commits).
-- Pipeline integration is WIP—feel free to contribute!
+- Declarative pipeline integrated via `Jenkinsfile`.
+- Triggers on GitHub push (requires webhook to `/github-webhook/`).
+- Publishes JUnit, Allure, and HTML reports and archives all artifacts.
+- Runs on a Windows agent (uses `bat` and `docker desktop start`).
+
+**Pipeline parameters:**
+- `TEST_ENV`: qa | uat | prod (sets configuration and URLs).
+- `browser`: chrome | firefox.
+- `browser_version`: e.g., `latest`, `126`.
+- `REMOTE`: true/false (start Selenoid and run remotely).
+- `MARK`: optional pytest `-m` expression.
+
+**Required Jenkins plugins:**
+- Pipeline
+- Git / GitHub Integration
+- Allure Jenkins Plugin (for Allure results)
+- HTML Publisher
+
+**How to run:**
+1. Create a Pipeline job -> Pipeline script from SCM -> point to this repo and branch.
+2. Ensure it runs on a node labeled `windows` with Docker Desktop installed and logged in.
+3. (Optional) Configure a GitHub webhook to trigger on push.
+4. Build with parameters; view 'Pytest HTML Report', Allure, and JUnit trend on the job page.
+
+> Note: To use a Linux agent, adapt the `Jenkinsfile` (replace `agent { label 'windows' }`, convert `bat` to `sh`, and remove `docker desktop start`).
 
 ## Contributing
 This is a demo project, but contributions are welcome! Fork the repo, create a branch, and submit a pull request.
 
-## License
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
 
----
 
-Built by [Your Name/Username]. Check out my GitHub for more projects!
