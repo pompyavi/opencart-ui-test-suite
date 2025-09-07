@@ -89,30 +89,11 @@ pipeline {
 
     stage('Run tests') {
       steps {
-        script {
-          def remoteFlag = params.REMOTE ? '--remote' : ''
-          def markFlag   = (params.MARK?.trim()) ? " -m \"${params.MARK}\"" : ""
-
-          def cmd = """
-            call .\\.venv\\Scripts\\activate.bat &&
-            python -m pytest ^
-              --browser ${params.browser} ^
-              --browser_version ${params.browser_version} ^
-              ${remoteFlag} ^
-              -n auto --dist loadscope ^
-              --alluredir=%ALLURE_DIR% ^
-              --junitxml=%REPORTS_DIR%\\junit.xml ^
-              --html=%REPORTS_DIR%\\latest.html --self-contained-html
-          """.stripIndent().trim()
-
-          if (markFlag) cmd += markFlag
-
-          bat """
-            ${cmd}
-            if ERRORLEVEL 1 exit /b 1
-          """
-        }
-      }
+    bat """
+      call .\\.venv\\Scripts\\activate.bat && ^
+      python -m pytest --browser ${params.browser} --browser_version ${params.browser_version} ${params.REMOTE ? '--remote' : ''} -n auto --dist loadscope --alluredir=%ALLURE_DIR% --junitxml=%REPORTS_DIR%\\junit.xml --html=%REPORTS_DIR%\\latest.html --self-contained-html
+    """
+    }
     }
   }
 
