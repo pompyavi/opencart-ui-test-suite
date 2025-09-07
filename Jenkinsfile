@@ -90,8 +90,7 @@ pipeline {
     stage('Run tests') {
       steps {
     bat """
-      call .\\.venv\\Scripts\\activate.bat && ^
-      python -m pytest --browser ${params.browser} --browser_version ${params.browser_version} ${params.REMOTE ? '--remote' : ''} -n auto --dist loadscope --alluredir=%ALLURE_DIR% --junitxml=%REPORTS_DIR%\\junit.xml --html=%REPORTS_DIR%\\latest.html --self-contained-html
+      call .\\.venv\\Scripts\\activate.bat && python -m pytest --browser ${params.browser} --browser_version ${params.browser_version} ${params.REMOTE ? '--remote' : ''} -n auto --dist loadscope --alluredir=%ALLURE_DIR% --junitxml=%REPORTS_DIR%\\junit.xml --html=%REPORTS_DIR%\\latest.html --self-contained-html
     """
     }
     }
