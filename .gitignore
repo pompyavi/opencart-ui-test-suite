@@ -41,3 +41,4 @@ allure-results/
 .pytest_cache/
 # keep secrets local
 configs/config.yaml
+selenoid/target
