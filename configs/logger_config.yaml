@@ -1,6 +1,9 @@
----
-version: 1  # this is needed, and is always 1 (at least at this time)
-disable_existing_loggers: true  # turn off any existing loggers - this is the default, so don't actually need this
+version: 1  # Required by logging.config.dictConfig
+
+# IMPORTANT: Must be false for module-level loggers to work!
+# When true, loggers created before dictConfig() (during import) are disabled.
+# Since our modules create loggers at import time, we need false to preserve them.
+disable_existing_loggers: false
 
 # Define one or more formatters
 # You can name them whatever you want, here I chose to name it `simple`
@@ -32,7 +35,14 @@ root:
   handlers: [console, file]
 
 loggers:
+  # Suppress noisy third-party library logs
   selenium:
+    level: WARNING
+    propagate: true
+  urllib3:
+    level: WARNING
+    propagate: true
+  urllib3.connectionpool:
     level: WARNING
     propagate: true
 

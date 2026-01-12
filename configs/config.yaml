@@ -4,10 +4,10 @@ qa:
   test_data:
     user_registration: "test_data/user_registration_data.csv"
   credentials:
-    email: "testuser_12@gmail.com"
-    password: "Welcome11@"
+    email: "monty.pompy@gmail.com"
+    password: "monty_pompy"
   headless: false
-  incognito: false
+  incognito: true
   flash: true
   remote:
     enabled: true

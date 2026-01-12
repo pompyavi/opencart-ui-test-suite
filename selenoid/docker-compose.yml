@@ -1,7 +1,7 @@
-version: '3'
 services:
   selenoid:
     image: "aerokube/selenoid:latest"
+    platform: linux/amd64
     container_name: selenoid
     ports:
       - "4444:4444"
@@ -14,14 +14,18 @@ services:
       - "./target:/opt/selenoid/video"
     environment:
       - "OVERRIDE_VIDEO_OUTPUT_DIR=$PWD/target"
-    command: ["-conf", "/etc/selenoid/browsers.json", "-video-output-dir", "/opt/selenoid/video", "-container-network", "selenoid", "-limit", "15"]
+    command: ["-conf", "/etc/selenoid/browsers.json", "-video-output-dir", "/opt/selenoid/video", "-container-network", "selenoid",
+              "-limit", "15", "-session-attempt-timeout", "180s", "-retry-count", "2", "-session-delete-timeout", "2m",
+              "-service-startup-timeout", "3m"]
+
   selenoid-ui:
     image: "aerokube/selenoid-ui:latest"
+    platform: linux/amd64
     container_name: selenoid-ui
     links:
       - selenoid
     ports:
-      - "8080:8080"
+      - "9090:8080"
     networks:
       - selenoid
     command: ["--selenoid-uri", "http://selenoid:4444"]
@@ -29,6 +33,7 @@ services:
   # Add this video recorder service
   video-recorder:
     image: "selenoid/video-recorder:latest-release"
+    platform: linux/amd64
     container_name: selenoid-video-recorder
     networks:
       - selenoid
@@ -40,6 +45,7 @@ services:
     
   chrome_124.0:
     image: "selenoid/vnc:chrome_124.0"
+    platform: linux/amd64
     container_name: chrome_124.0
     links:
       - selenoid
@@ -53,6 +59,7 @@ services:
       - "/dev/shm:/dev/shm"
   chrome_113.0:
     image: "selenoid/vnc:chrome_113.0"
+    platform: linux/amd64
     container_name: chrome_113.0
     links:
       - selenoid
@@ -66,6 +73,7 @@ services:
       - "/dev/shm:/dev/shm"
   chrome_123.0:
     image: "selenoid/vnc:chrome_123.0"
+    platform: linux/amd64
     container_name: chrome_123.0
     links:
       - selenoid
@@ -79,6 +87,7 @@ services:
       - "/dev/shm:/dev/shm"
   chrome_126.0:
     image: "selenoid/vnc:chrome_126.0"
+    platform: linux/amd64
     container_name: chrome_126.0
     links:
       - selenoid
@@ -93,6 +102,7 @@ services:
 
   firefox_125.0:
     image: "selenoid/vnc:firefox_125.0"
+    platform: linux/amd64
     container_name: firefox_125.0
     links:
       - selenoid
@@ -106,6 +116,7 @@ services:
       - "/dev/shm:/dev/shm"
   firefox_124.0:
     image: "selenoid/vnc:firefox_124.0"
+    platform: linux/amd64
     container_name: firefox_124.0
     links:
       - selenoid
@@ -119,6 +130,7 @@ services:
       - "/dev/shm:/dev/shm"
   firefox_100.0:
     image: "selenoid/vnc:firefox_100.0"
+    platform: linux/amd64
     container_name: firefox_100.0
     links:
       - selenoid
@@ -132,6 +144,7 @@ services:
       - "/dev/shm:/dev/shm"
   firefox_105.0:
     image: "selenoid/vnc:firefox_105.0"
+    platform: linux/amd64
     container_name: firefox_105.0
     links:
       - selenoid
@@ -146,5 +159,6 @@ services:
                     
 networks:
   selenoid:
-    external:
-      name: selenoid
+    name: selenoid
+    external: true
+

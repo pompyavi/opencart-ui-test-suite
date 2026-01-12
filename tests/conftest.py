@@ -1,13 +1,40 @@
+"""
+Pytest Configuration Module (conftest.py)
+==========================================
+
+Central configuration file for pytest test execution.
+Provides fixtures, hooks, and configuration for the test framework.
+
+Features:
+    - Browser setup/teardown fixtures
+    - Page object initialization fixtures
+    - Logging configuration with parallel execution support
+    - pytest-html report customization with screenshots
+    - Allure integration (optional)
+    - Test start/end logging with visual separators
+
+Command Line Options:
+    --browser: Browser type (chrome, firefox, edge)
+    --browser_version: Browser version (default: latest)
+    --remote: Enable Selenoid/Grid execution
+
+Example:
+    pytest tests/ --browser chrome --remote -n auto
+"""
+
 import base64
 import copy
+import logging
+import logging.config
+import os
 import shutil
 from datetime import datetime
 from pathlib import Path
+
 import pytest
 from pytest_html import extras as html_extras
 from yaml import safe_load
-import logging
-import logging.config
+
 from pages.common_components import CommonComponents
 from pages.login_page import LoginPage
 from utils.config_reader import ConfigReader
@@ -15,23 +42,40 @@ from utils.driver_factory.driver_manager import driver_manager
 
 # --- optional Allure (won't break if missing) ---
 try:
-    import os
     import allure
     from allure_commons.types import AttachmentType
     _ALLURE = True
-except Exception:
+except ImportError:
     allure = None
     AttachmentType = None
     _ALLURE = False
 # -----------------------------------------------
 
+# Module-level logger - initialized in configure_logging fixture
+_logger = logging.getLogger(__name__)
 
-_logger = None
 
 def pytest_addoption(parser):
-    parser.addoption("--browser", action="store")
-    parser.addoption("--browser_version", action="store", default="latest", type=str)
-    parser.addoption("--remote", action="store_true",  # means it’s a boolean toggle
+    """
+    Register custom command-line options for pytest.
+    
+    Options:
+        --browser: Browser type to use (chrome, firefox, edge).
+                   If not provided, reads from config.yaml.
+        --browser_version: Browser version (default: 'latest').
+                          Use specific versions like '120.0' for Selenoid.
+        --remote: Enable remote execution via Selenoid/Selenium Grid.
+        
+    Example:
+        pytest tests/ --browser chrome --browser_version 120.0 --remote
+    """
+    parser.addoption("--browser", action="store",
+        help="Browser type: chrome, firefox, or edge"
+    )
+    parser.addoption("--browser_version", action="store", default="latest", type=str,
+        help="Browser version (default: latest)"
+    )
+    parser.addoption("--remote", action="store_true",
         default=False,
         help="Enable remote execution via Selenium Grid or Selenoid"
     )
@@ -39,47 +83,134 @@ def pytest_addoption(parser):
 
 @pytest.fixture(scope='class')
 def setup_teardown(request):
-    browser = request.config.getoption("browser")
+    """
+    Main browser setup and teardown fixture.
+    
+    Creates a WebDriver instance and attaches it to the test class
+    along with CommonComponents for shared functionality.
+    
+    Scope: class - One browser instance per test class.
+    
+    Provides:
+        - request.cls.driver: WebDriver instance
+        - request.cls.common_components: CommonComponents instance
+        
+    Teardown:
+        Automatically quits the browser after all tests in the class.
+        
+    Example:
+        @pytest.mark.usefixtures('setup_teardown')
+        class TestExample:
+            def test_something(self):
+                self.driver.get("https://example.com")
+    """
+    browser = request.config.getoption("browser") or ConfigReader.get_config('browser')
     version = request.config.getoption("browser_version")
     test_name = request.node.name
     remote = request.config.getoption("remote")
     driver = driver_manager(browser, remote, version, test_name)
 
-    # Attaches the driver to the test class (request.cls.driver), so in tests you can just do
-    # self.driver instead of passing it as a method arg.
+    # Attaches the driver to the test class
     request.cls.driver = driver
-
-    # setup common components
     request.cls.common_components = CommonComponents(driver)
+    
     yield
+    
     driver.quit()
 
-#------------- fixtures --------------------
 
-# This fixture depends on setup_teardown (because it’s passed as a parameter).
-# That ensures setup_teardown runs before this fixture.
-# It takes the driver created by setup_teardown (request.cls.driver) and instantiates LoginPage Object
+# ============== Page Object Fixtures ==============
+
 @pytest.fixture(scope='class')
 def setup_login_page(request, setup_teardown):
-    # Now, all test methods in the class can directly use self.login_page without creating it themselves.
+    """
+    Initialize LoginPage and attach to test class.
+    
+    Depends on: setup_teardown
+    
+    Provides:
+        - request.cls.login_page: LoginPage instance
+        
+    Note:
+        Automatically navigates to the login URL during initialization.
+        
+    Example:
+        @pytest.mark.usefixtures('setup_login_page')
+        class TestLogin:
+            def test_title(self):
+                assert self.login_page.get_page_title() == "Account Login"
+    """
     request.cls.login_page = LoginPage(request.cls.driver)
+
 
 @pytest.fixture(scope='class')
 def setup_account_page(request, setup_login_page):
+    """
+    Login and initialize AccountPage for tests requiring authentication.
+    
+    Depends on: setup_login_page
+    
+    Provides:
+        - request.cls.account_page: AccountPage instance (logged in)
+        
+    Credentials:
+        Retrieved from config.yaml under 'credentials' section.
+        
+    Example:
+        @pytest.mark.usefixtures('setup_account_page')
+        class TestAccount:
+            def test_logout_visible(self):
+                assert self.account_page.is_logout_link_exists()
+    """
     _logger.info("Logging in to setup AccountPage")
     creds = ConfigReader.get_config('credentials')
-    request.cls.account_page = request.cls.login_page.do_login(creds.get('email'), creds.get('password'))
+    request.cls.account_page = request.cls.login_page.do_login(
+        creds.get('email'), creds.get('password')
+    )
     _logger.info("AccountPage setup completed")
+
 
 @pytest.fixture(scope='class')
 def setup_registration_page(request, setup_login_page):
+    """
+    Navigate to registration page and initialize UserRegistrationPage.
+    
+    Depends on: setup_login_page
+    
+    Provides:
+        - request.cls.registration_page: UserRegistrationPage instance
+        
+    Example:
+        @pytest.mark.usefixtures('setup_registration_page')
+        class TestRegistration:
+            def test_register_user(self):
+                result = self.registration_page.register_user(...)
+    """
     request.cls.registration_page = request.cls.login_page.click_registration_link()
 
 @pytest.fixture(autouse=True)
 def log_test_start_and_end(request):
-    _logger.info(f"--- STARTING {request.node.name} ---")
+    """Log clear separators between tests with metadata."""
+    test_name = request.node.name
+    test_class = request.node.parent.name if request.node.parent else "Unknown"
+    test_file = request.node.fspath.basename if hasattr(request.node, 'fspath') else "Unknown"
+    
+    separator = "=" * 80
+    _logger.info("")
+    _logger.info(separator)
+    _logger.info(f"  TEST START: {test_name}")
+    _logger.info(f"  Class: {test_class} | File: {test_file}")
+    _logger.info(separator)
+    
     yield
-    _logger.info(f"--- ENDING {request.node.name} ---")
+    
+    # Get test outcome
+    outcome = "PASSED" if not hasattr(request.node, '_fail_text') or request.node._fail_text is None else "FAILED"
+    
+    _logger.info(separator)
+    _logger.info(f"  TEST END: {test_name} | Result: {outcome}")
+    _logger.info(separator)
+    _logger.info("")
 
 @pytest.fixture(scope="session", autouse=True)
 def configure_logging(request):
@@ -121,8 +252,7 @@ def configure_logging(request):
     handlers["file"]["filename"] = str(log_file_path)
 
     logging.config.dictConfig(config=cfg)
-    global _logger
-    _logger = logging.getLogger(__name__)
+    _logger.info(f"Logging configured | File: {log_file_path}")
 
 
 
@@ -146,22 +276,23 @@ def pytest_configure(config):
     # 4) Build a timestamp like 2025-08-15_21-17-33
     ts = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
-    # 5) Insert the timestamp before the .html extension
+    # 5) Insert the timestamp into the filename before the .html extension
     stamped = base.with_name(f"{base.stem}_{ts}{base.suffix}")
 
     # 6) Make sure the folder exists
+    # parents=True creates intermediate directories;
+    # exist_ok=True avoids raising if it already exists.
     stamped.parent.mkdir(parents=True, exist_ok=True)
 
     # 7) Tell pytest-html to write to the timestamped path
+    # config.option holds CLI options — --html maps to htmlpath.
+    # This effectively overrides CLI default if no CLI path was given or augments it.
     config.option.htmlpath = str(stamped)
 
     # 9) (Optional) remember where to copy a "latest.html"
+    # This is an ad-hoc attribute (leading underscore to hint private). It’s used in pytest_unconfigure.
     config._latest_html_target = base.with_name("latest.html")
 
-
-def _b64(data: bytes) -> str:
-    """bytes -> base64 ascii string"""
-    return base64.b64encode(data).decode("ascii")
 
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_makereport(item, call):
@@ -173,8 +304,10 @@ def pytest_runtest_makereport(item, call):
 
     # Resolve driver once (function fixture or class attribute)
     drv = None
+    # If the test uses a driver fixture, it will be in item.funcargs. Grab it.
     if hasattr(item, "funcargs"):
         drv = item.funcargs.get("driver")
+    # If the test is a method on a class instance and that instance has a driver attribute, use that.
     if drv is None and getattr(item, "instance", None) is not None:
         drv = getattr(item.instance, "driver", None)
     if not drv:
@@ -182,6 +315,7 @@ def pytest_runtest_makereport(item, call):
 
     # One timestamp/worker id for both reporters
     ts = int(datetime.now().timestamp())
+    # get the xdist worker id from environment if present.
     worker = os.getenv("PYTEST_XDIST_WORKER", "sequential")
 
     # Take one screenshot; reuse for html + Allure
@@ -191,9 +325,9 @@ def pytest_runtest_makereport(item, call):
     except Exception:
         pass
 
-    # pytest-html (embed as base64 so it's self-contained)
     if item.config.pluginmanager.hasplugin("html") and png:
         try:
+            # pytest-html (embed as base64 so it's self-contained)
             b64 = base64.b64encode(png).decode("ascii")
             extras_list = getattr(rep, "extras", None) or getattr(rep, "extra", [])
             extras_list.append(
@@ -233,9 +367,9 @@ def pytest_unconfigure(config):
     if html and latest and Path(html).exists():
         try:
             shutil.copyfile(html, latest)
-            _logger and _logger.info(f"Copied final HTML to: {latest}")
+            _logger.info(f"Copied final HTML to: {latest}")
         except Exception as e:
-            _logger and _logger.warning(f"Failed to copy HTML to latest: {e}")
+            _logger.warning(f"Failed to copy HTML to latest: {e}")
 
 
 def pytest_html_report_title(report):

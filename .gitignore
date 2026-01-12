@@ -35,7 +35,10 @@ htmlcov/
 # logs/reports and pytest cache
 logs/
 reports/
+docs/
 allure-results/
+target/
+.DS_Store
 *.log
 *.html
 .pytest_cache/
