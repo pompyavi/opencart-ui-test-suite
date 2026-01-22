@@ -94,7 +94,6 @@ pipeline {
         fi
 
         CMD="python -m pytest \
-          --env ${ENV} \
           --browser ${browser} \
           --browser_version ${browser_version} \
           -n auto --dist loadscope \
