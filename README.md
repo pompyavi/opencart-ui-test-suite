@@ -1,4 +1,4 @@
-# OpenCart UI Test Suite
+# OpenCart UI Test Suite 
 
 ![Python](https://img.shields.io/badge/Python-3.8%2B-blue)
 ![Selenium](https://img.shields.io/badge/Selenium-4.x-green)
