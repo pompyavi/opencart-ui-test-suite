@@ -12,7 +12,7 @@ pipeline {
   }
 
   parameters {
-    choice(name: 'ENV', choices: ['qa','uat','prod'], description: 'Target Environment')
+    choice(name: 'TEST_ENV', choices: ['qa','uat','prod'], description: 'Target Environment')
     choice(name: 'browser', choices: ['chrome','firefox'], description: 'Browser')
     string(name: 'browser_version', defaultValue: 'latest', description: 'Browser Version')
     booleanParam(name: 'remote', defaultValue: false, description: 'Run via Docker Grid (Selenoid)')
@@ -20,6 +20,7 @@ pipeline {
   }
 
   environment {
+    TEST_ENV = "${params.TEST_ENV}"
     REPORTS_DIR = 'reports'
     ALLURE_DIR  = 'reports/allure-results'
     SELENOID_COMPOSE = 'selenoid/docker-compose.yml'
