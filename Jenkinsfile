@@ -1,5 +1,5 @@
 pipeline {
-  agent { label 'windows' } // uses a Windows node (required for bat + Docker Desktop)
+  agent any
 
   options {
     timestamps()
@@ -8,128 +8,157 @@ pipeline {
   }
 
   triggers {
-    // Build on GitHub push (make sure your repo webhook points to /github-webhook/)
     githubPush()
   }
 
   parameters {
-    choice(name: 'TEST_ENV', choices: ['qa', 'uat', 'prod'], description: 'Target test environment')
-    choice(name: 'browser', choices: ['chrome', 'firefox'], description: 'Target browser')
-    string(name: 'browser_version', defaultValue: 'latest', description: 'Browser version (e.g. latest, 126, etc.)')
-    booleanParam(name: 'REMOTE', defaultValue: true, description: 'Run via Selenoid (Docker). If false, run local.')
-    string(name: 'MARK', defaultValue: '', description: 'Optional pytest -m filter (e.g. "smoke and not flaky")')
+    choice(name: 'ENV', choices: ['qa','uat','prod'], description: 'Target Environment')
+    choice(name: 'browser', choices: ['chrome','firefox'], description: 'Browser')
+    string(name: 'browser_version', defaultValue: 'latest', description: 'Browser Version')
+    booleanParam(name: 'remote', defaultValue: false, description: 'Run via Docker Grid (Selenoid)')
+    booleanParam(name: 'saucelabs', defaultValue: false, description: 'Run via SauceLabs')
   }
 
   environment {
-    // Your tests read env = os.getenv("TEST_ENV", "qa")
-    TEST_ENV = "${params.TEST_ENV}"
-
     REPORTS_DIR = 'reports'
-    ALLURE_DIR  = 'reports\\allure-results'
-    SELENOID_COMPOSE = 'selenoid\\docker-compose.yml'
-
-    REPO_URL    = 'https://github.com/pompyavi/opencart-ui-test-suite.git'
-    REPO_BRANCH = 'main'
+    ALLURE_DIR  = 'reports/allure-results'
+    SELENOID_COMPOSE = 'selenoid/docker-compose.yml'
   }
 
   stages {
-    stage('Checkout (clean)') {
+
+    stage('Checkout') {
       steps {
         deleteDir()
-        checkout([
-          $class: 'GitSCM',
-          branches: [[name: "*/${REPO_BRANCH}"]],
-          userRemoteConfigs: [[url: "${REPO_URL}"]],
-          extensions: [[ $class: 'CleanBeforeCheckout' ]]
-        ])
+        checkout scm
       }
     }
 
-    stage('Python venv + deps') {
+    stage('Create Virtual Environment') {
       steps {
-        bat '''
-          if not exist ".venv\\Scripts\\python.exe" (
-            py -3 -m venv .venv || python -m venv .venv
-          )
-          call .\\.venv\\Scripts\\activate.bat
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+        sh '''
+        if [ ! -d ".venv" ]; then
+          python3 -m venv .venv
+        fi
         '''
       }
     }
 
-    stage('Prep report folders') {
+    stage('Install Dependencies') {
       steps {
-        bat '''
-          if exist "%REPORTS_DIR%" rmdir /s /q "%REPORTS_DIR%"
-          mkdir "%REPORTS_DIR%"
-          mkdir "%ALLURE_DIR%"
+        sh '''
+        source .venv/bin/activate
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
         '''
       }
     }
 
-    stage('Start Selenoid (if REMOTE)') {
-      when { expression { return params.REMOTE == true } }
+    stage('Prepare Reports') {
       steps {
-        bat '''
-          REM Start Docker Desktop (headless) and wait until engine is ready
-          docker desktop start
-
-          for /l %%i in (1,1,60) do (
-            docker info >nul 2>&1 && goto _docker_ready
-            timeout /t 2 >nul
-          )
-          echo Docker didn't start in time. & exit /b 1
-          :_docker_ready
-
-          docker compose -f "%SELENOID_COMPOSE%" up -d
+        sh '''
+        rm -rf "$REPORTS_DIR"
+        mkdir -p "$ALLURE_DIR"
         '''
       }
     }
 
-    stage('Run tests') {
+    stage('Start Docker Grid (if remote)') {
+      when { expression { params.remote == true && params.saucelabs == false } }
       steps {
-    bat """
-      call .\\.venv\\Scripts\\activate.bat && python -m pytest --browser ${params.browser} --browser_version ${params.browser_version} ${params.REMOTE ? '--remote' : ''} -n auto --dist loadscope --alluredir=%ALLURE_DIR% --junitxml=%REPORTS_DIR%\\junit.xml --html=%REPORTS_DIR%\\latest.html --self-contained-html
-    """
+        sh '''
+        echo "Starting Docker…"
+        open -a Docker || true
+
+        # wait for docker to be ready
+        for i in {1..60}; do
+          docker info >/dev/null 2>&1 && break
+          sleep 2
+        done || { echo "Docker not ready"; exit 1; }
+
+        docker compose -f "$SELENOID_COMPOSE" up -d
+        '''
+      }
     }
+
+    stage('Run Tests') {
+      steps {
+        sh '''
+        source .venv/bin/activate
+
+        # safety: remote and saucelabs cannot both be true
+        if [ "${remote}" = "true" ] && [ "${saucelabs}" = "true" ]; then
+          echo "ERROR: remote and saucelabs cannot both be true"
+          exit 1
+        fi
+
+        CMD="python -m pytest \
+          --env ${ENV} \
+          --browser ${browser} \
+          --browser_version ${browser_version} \
+          -n auto --dist loadscope \
+          --alluredir=${ALLURE_DIR} \
+          --junitxml=${REPORTS_DIR}/junit.xml \
+          --html=${REPORTS_DIR}/report.html --self-contained-html"
+
+        if [ "${saucelabs}" = "true" ]; then
+          echo "Running on SauceLabs"
+          CMD="$CMD --saucelabs"
+        elif [ "${remote}" = "true" ]; then
+          echo "Running on Docker Grid"
+          CMD="$CMD --remote"
+        else
+          echo "Running Locally"
+        fi
+
+        echo "$CMD"
+        set +e
+        eval "$CMD"
+        status=$?
+        set -e
+        exit $status
+        '''
+      }
     }
   }
 
   post {
     always {
+
       script {
-        if (params.REMOTE == true) {
-          bat 'docker compose -f "%SELENOID_COMPOSE%" down || ver >nul'
+        if (params.remote == true && params.saucelabs == false) {
+          sh 'docker compose -f "$SELENOID_COMPOSE" down || true'
         }
       }
 
-      // JUnit (for test trend)
-      junit allowEmptyResults: false,
-            keepProperties: true,
-            keepTestNames: true,
-            testResults: 'reports/junit.xml'
+      // JUnit report
+      junit 'reports/junit.xml'
 
-      // Allure (needs Allure Jenkins plugin)
-      allure includeProperties: false,
-             results: [[path: 'reports/allure-results']]
+      // Allure report
+      allure([
+        includeProperties: false,
+        results: [[path: 'reports/allure-results']]
+      ])
 
-      // Publish pytest HTML report (latest.html)
+      // Pytest HTML
       publishHTML(target: [
         reportName: 'Pytest HTML Report',
         reportDir: 'reports',
-        reportFiles: 'latest.html',
-        alwaysLinkToLastBuild: false,
+        reportFiles: 'report.html',
+        alwaysLinkToLastBuild: true,
         keepAll: true,
-        allowMissing: false,
-        includes: '**/*',
-        escapeUnderscores: true,
-        useWrapperFileDirectly: true,
-        numberOfWorkers: 0
+        allowMissing: false
       ])
 
-      // Archive all report artifacts
       archiveArtifacts artifacts: 'reports/**', allowEmptyArchive: true
+    }
+
+    success {
+      echo "BUILD SUCCESS"
+    }
+
+    failure {
+      echo "BUILD FAILED"
     }
   }
 }
